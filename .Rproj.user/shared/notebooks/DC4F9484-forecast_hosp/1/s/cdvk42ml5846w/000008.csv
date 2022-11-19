@@ -1,0 +1,184 @@
+"0","semimech::generate_submission_file(dates,samples,""UT-test"",""sub_files"")
+"
+"1","debugging in: "
+"1","semimech::generate_submission_file(dates, samples, ""UT-test"", 
+"
+"1","    ""sub_files"")
+"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#162: "
+"1","{
+"
+"1","    library(dplyr)
+"
+"1","    quantiles <- c(0.01, 0.025, seq(0.05, 0.95, by = 0.05), 0.975, 
+"
+"1","        0.99)
+"
+"1","    last_date <- date
+"
+"1","    df_to_submit_list <- list()
+"
+"1","    for (state in names(samples)) {
+"
+"1","        preds_mat <- samples[[state]]
+"
+"1","        ncol_preds <- ncol(preds_mat)
+"
+"1","        df_to_submit <- data.frame(location = rep(state, 30 * 
+"
+"1","            23), forecast_date = rep(last_date, 30 * 23))
+"
+"1","        horizon_quantile_mat <- matrix(NA, nrow = length(quantiles), 
+"
+"1","            ncol = 30)
+"
+"1","        for (h in 1:30) {
+"
+"1","            q_idx <- 1
+"
+"1","            for (quant_lvl in quantiles) {
+"
+"1","                horizon_quantile_mat[q_idx, h] <- quantile(preds_mat[, 
+"
+"1","                  h], probs = quant_lvl, na.rm = T)
+"
+"1","                q_idx <- q_idx + 1
+"
+"1","            }
+"
+"1","        }
+"
+"1","        df_to_submit$value <- c(horizon_quantile_mat)
+"
+"1","        df_to_submit$type <- ""quantile""
+"
+"1","        df_to_submit$target_end_date <- rep(last_date + 1:30, 
+"
+"1","            each = 23)
+"
+"1","        df_to_submit$quantile <- rep(quantiles, 30)
+"
+"1","        df_to_submit$target <- rep(paste(1:30, ""day ahead inc hosp""), 
+"
+"1","            each = 23)
+"
+"1","        df_to_submit_list[[state]] <- df_to_submit
+"
+"1","    }
+"
+"1","    df_to_submit <- do.call(rbind.data.frame, df_to_submit_list)
+"
+"1","    fips <- load(""data/fips.rda"")
+"
+"1","    colnames(fips) <- c(""fips"", ""state_full"", ""state"", ""alphacount"")
+"
+"1","    glimpse(fips)
+"
+"1","    library(stringr)
+"
+"1","    fips <- fips %>% mutate(fips = str_pad(fips, 2, pad = ""0""))
+"
+"1","    fips$location <- fips$state
+"
+"1","    df_to_submit <- df_to_submit %>% left_join(fips, by = ""location"")
+"
+"1","    df_to_submit$location <- df_to_submit$fips
+"
+"1","    df_to_submit <- df_to_submit %>% dplyr::select(target, location, 
+"
+"1","        forecast_date, target_end_date, quantile, value, type)
+"
+"1","    write.csv(file = paste0(sub_dir, ""/"", last_date, ""-"", model_name, 
+"
+"1","        "".csv""), x = df_to_submit)
+"
+"1","}
+"
+"0","n"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#163: "
+"1","library(dplyr)
+"
+"0","n"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#164: "
+"1","quantiles <- c(0.01, 0.025, seq(0.05, 0.95, by = 0.05), 0.975, 
+"
+"1","    0.99)
+"
+"0","n"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#166: "
+"1","last_date <- date
+"
+"0","n"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#167: "
+"1","df_to_submit_list <- list()
+"
+"0","n"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#168: "
+"1","for (state in names(samples)) {
+"
+"1","    preds_mat <- samples[[state]]
+"
+"1","    ncol_preds <- ncol(preds_mat)
+"
+"1","    df_to_submit <- data.frame(location = rep(state, 30 * 23), 
+"
+"1","        forecast_date = rep(last_date, 30 * 23))
+"
+"1","    horizon_quantile_mat <- matrix(NA, nrow = length(quantiles), 
+"
+"1","        ncol = 30)
+"
+"1","    for (h in 1:30) {
+"
+"1","        q_idx <- 1
+"
+"1","        for (quant_lvl in quantiles) {
+"
+"1","            horizon_quantile_mat[q_idx, h] <- quantile(preds_mat[, 
+"
+"1","                h], probs = quant_lvl, na.rm = T)
+"
+"1","            q_idx <- q_idx + 1
+"
+"1","        }
+"
+"1","    }
+"
+"1","    df_to_submit$value <- c(horizon_quantile_mat)
+"
+"1","    df_to_submit$type <- ""quantile""
+"
+"1","    df_to_submit$target_end_date <- rep(last_date + 1:30, each = 23)
+"
+"1","    df_to_submit$quantile <- rep(quantiles, 30)
+"
+"1","    df_to_submit$target <- rep(paste(1:30, ""day ahead inc hosp""), 
+"
+"1","        each = 23)
+"
+"1","    df_to_submit_list[[state]] <- df_to_submit
+"
+"1","}
+"
+"0","n"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#169: "
+"1","preds_mat <- samples[[state]]
+"
+"0","c"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#194: "
+"1","df_to_submit <- do.call(rbind.data.frame, df_to_submit_list)
+"
+"0","n"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#196: "
+"1","fips <- load(""data/fips.rda"")
+"
+"0","n"
+"1","debug at /Users/gcg799/Desktop/semimech/R/semimech.R#197: "
+"1","colnames(fips) <- c(""fips"", ""state_full"", ""state"", ""alphacount"")
+"
+"0","fips"
+"1","[1]"
+"1"," ""fips"""
+"1","
+"
+"0","Q"

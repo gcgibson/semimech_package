@@ -1,0 +1,133 @@
+---
+title: "SemiMech"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+First we load the library.
+
+```{r setup, include=FALSE}
+library(semimech)
+```
+
+The main function exported is called `semimech:generate_samples()` which takes a `start` argument, the beginning of the time series. `dates` a sequence of dates to forecast, `region` a flag for which geographic resolution to forecast (right now only US states), `target` a string ("hosp","cases","deaths") representing the target (right now set to hospitalizations) and `inc_dat` a data frame of disease incidence data (right now must be the result of a call to get_hhs.)
+
+
+Get the data!
+
+```{r,message=FALSE,warning=FALSE}
+#hhs <- get_hhs()
+#write.csv(file = "hhs",x = hhs)
+hhs <- read.csv("hhs")
+```
+
+Define the forecast dates.
+```{r,message=FALSE,warning=FALSE}
+dates <- c(as.Date("2021-07-12"))
+
+```
+
+
+Get the samples.
+
+```{r,message=FALSE,warning=FALSE}
+samples <- semimech::generate_samples("2020-08-01",dates,"states",hhs)
+
+```
+
+Plot the samples
+
+```{r,message=FALSE,warning=FALSE}
+library(ggplot2)
+
+median_mat <- matrix(NA,nrow=length(names(samples)),ncol=30)
+upper_ci_mat <- matrix(NA,nrow=length(names(samples)),ncol=30)
+lower_ci_mat <- matrix(NA,nrow=length(names(samples)),ncol=30)
+
+row_idx <- 1
+for (key in names(samples)){
+  median_mat[row_idx,] <- colMeans(samples[[key]])
+  upper_ci_mat[row_idx,] <- apply(samples[[key]],2,function(x){quantile(x,probs=.975)})
+  lower_ci_mat[row_idx,] <- apply(samples[[key]],2,function(x){quantile(x,probs=.025)})
+
+  row_idx <- row_idx + 1
+}
+
+
+ci_mat_df <- data.frame(median_ = c(median_mat),upper_ci=c(upper_ci_mat),lower_ci=c(lower_ci_mat),state=rep( names(samples),30),date=rep(dates+1:30,each=length(names(samples))))
+ 
+
+
+p <- ggplot(ci_mat_df,aes(x=date,y=median_)) + geom_line() + 
+  geom_point(data=hhs[hhs$date > dates-30 & hhs$date < dates+30,],aes(x=as.Date(date),y=previous_day_admission_adult_covid_confirmed),size=.5)  +  geom_ribbon(data=ci_mat_df,aes(x=date,ymax=upper_ci,ymin=lower_ci,y=median_),alpha=.5) + facet_wrap(~state,scales="free")
+
+
+ggsave(filename=paste0("figs/",dates[1],".png"),plot=p,height = 10,width = 12)
+```
+
+
+Generate submission file.
+
+```{r,message=FALSE,warning=FALSE}
+
+semimech::generate_submission_file(dates,samples,"UT-test","sub_files")
+
+```
+
+
+
+
+
+
+Let's do a full years worth of eval.
+
+```{r,message=FALSE,warning=FALSE,eval=FALSE}
+date_seq <- seq(as.Date("2021-07-12"),as.Date("2021-07-12")+50*7,by="week")
+for (date_idx in 1:length(date_seq)){
+  samples <- semimech::generate_samples("2020-08-01",date_seq[date_idx],"states",hhs)
+  semimech::generate_submission_file(date_seq[date_idx],samples,"UT-test","sub_files")
+}
+
+
+```
+
+
+Let's evaluate with respect to baseline and ensemble. **Note** Before you evaluate you must copy the files from `sub_files` and placed in the `data_processed/UT-test` folder in a cloned version of `https://github.com/reichlab/covid19-forecast-hub` .
+```{r,message=FALSE,warning=FALSE}
+library(covidHubUtils)
+fcasts <- load_forecasts(
+  source = "local_hub_repo",
+  models =c("UT-test"),
+  targets = c(paste0(rep(1:28), " day ahead inc hosp")),
+  data_processed_subpath = "data-processed/",
+  hub_repo_path = "/Users/gcg799/covid19-forecast-hub/",
+  hub = "US")
+
+fcasts_baseline <- load_forecasts(
+  source = "local_hub_repo",
+  models =c("COVIDhub-baseline","COVIDhub-ensemble"),date_window_size = 3,
+  dates = unique(fcasts$forecast_date),locations = unique(fcasts$location),
+    
+  targets = c(paste0(rep(1:28), " day ahead inc hosp")),
+  data_processed_subpath = "data-processed/",
+  hub_repo_path = "/Users/gcg799/covid19-forecast-hub/",
+  hub = "US")
+
+
+truth <- load_truth(hub = "US")
+truth <- truth[truth$target_variable == "inc hosp",]
+
+scores <- score_forecasts(rbind(fcasts,fcasts_baseline),truth = truth,metrics = c("abs_error","wis","interval_coverage"),use_median_as_point=TRUE)
+scores_common_location <- unique(scores[scores$model == "UT-test",]$location)
+scores_common_forecast_date <- unique(scores[scores$model == "UT-test",]$forecast_date)
+
+summ_scores <- scores[scores$location %in%scores_common_location &
+              scores$forecast_date %in% scores_common_forecast_date,] %>% group_by(model) %>% summarize(coverage_90=mean(coverage_90),wis=mean(wis),abs_error=mean(abs_error))
+
+
+print (summ_scores)
+
+```
+
+
