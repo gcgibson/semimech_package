@@ -1,8 +1,8 @@
 ---
 title: "SemiMech"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 First we load the library.
@@ -17,7 +17,7 @@ The main function exported is called `semimech:generate_samples()` which takes a
 Get the data!
 
 ```{r,message=FALSE,warning=FALSE}
-
+library(stringr)
 hhs <- get_hhs()
 
 ```
@@ -63,7 +63,7 @@ p <- ggplot(ci_mat_df,aes(x=date,y=median_)) + geom_line() +
   geom_point(data=hhs[hhs$date > dates-30 & hhs$date < dates+30,],aes(x=as.Date(date),y=previous_day_admission_adult_covid_confirmed),size=.5)  +  geom_ribbon(data=ci_mat_df,aes(x=date,ymax=upper_ci,ymin=lower_ci,y=median_),alpha=.5) + facet_wrap(~state,scales="free")
 
 
-ggsave(filename=paste0("figs/",dates[1],".png"),plot=p,height = 10,width = 12)
+ggsave(filename=paste0("../figs/",dates[1],".png"),plot=p,height = 10,width = 12)
 ```
 
 
