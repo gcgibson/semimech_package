@@ -89,10 +89,11 @@ generate_samples <- function(start,dates,region,inc_dat){
 
 
       ###GAM stuff
-      fit_spline <- gam(covid ~ s(t,df=5)  ,data=data.frame(covid=inc_dat_sub_sub_tmp_train,
+      fit_spline <- gam(covid ~ s(t,df=6,spar = .5)  ,data=data.frame(covid=inc_dat_sub_sub_tmp_train,
                                                             t= 1:length(inc_dat_sub_sub_tmp_train),
                                                             wave_mat=wave_mat_train))
-
+      #basis <- bs(1:80,df=5)
+      #fit <- solve(t(basis)%*%basis)%*%t(basis)%*%inc_dat_sub_sub_tmp_train
       blorp <- data.frame(t=1:(length(inc_dat_sub_sub_tmp_train) +30),
                           wave_mat = wave_mat_test)#,
       #  wave_mat = wave_mat_test)
@@ -125,6 +126,8 @@ generate_samples <- function(start,dates,region,inc_dat){
       #### KCDE style differences
       wave_mat_sds <- rep(0,30)
       diff_by_horzizon <-rep(0,30)
+      over_dispersion <-rep(0,30)
+
       for (h in 1:30){
         diff_by_horzizon[h] <- sd(diff(inc_dat_sub_sub_tmp,lag=h))
         wave_mat_diffs <- apply(wave_mat,2,function(x){
@@ -132,6 +135,7 @@ generate_samples <- function(start,dates,region,inc_dat){
         })
 
         wave_mat_sds[h] <- sd(wave_mat_diffs*local_pop/1e5,na.rm = T)
+        over_dispersion[h] <- mean()
       }
 
       preds_mat <- matrix(nrow=1000,ncol=30)

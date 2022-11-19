@@ -82,7 +82,7 @@ semimech::generate_submission_file(dates,samples,"UT-test","sub_files")
 
 Let's do a full years worth of eval.
 
-```{r,message=FALSE,warning=FALSE}
+```{r,message=FALSE,warning=FALSE,eval=FALSE}
 date_seq <- seq(as.Date("2021-07-12"),as.Date("2021-07-12")+50*7,by="week")
 for (date_idx in 1:length(date_seq)){
   samples <- semimech::generate_samples("2020-08-01",date_seq[date_idx],"states",hhs)
