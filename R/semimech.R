@@ -106,7 +106,7 @@ generate_samples <- function(start,dates,region,inc_dat){
 
           preds_historical <- predict(fit_historical,newx = wave_mat_test)
           preds_historical<- preds_historical[(length(preds_historical)-29):length(preds_historical)]
-          weights <- c(sum(fit_spline$residuals**2),mse_historical)
+          weights <- c(1/sum(fit_spline$residuals**2),1/mse_historical)
           weights  <- weights/sum(weights)
         } else{
           weights <- c(1,1e-10)
@@ -193,7 +193,7 @@ generate_submission_file <- function(date,samples,model_name,sub_dir){
   }
   df_to_submit <-do.call(rbind.data.frame, df_to_submit_list)
 
-  load('data/fips.rda')
+  load('../data/fips.rda')
   colnames(fips) <- c("fips", "state_full", "state", "alphacount")
   glimpse(fips)
   library(stringr)
@@ -203,6 +203,6 @@ generate_submission_file <- function(date,samples,model_name,sub_dir){
   df_to_submit <- df_to_submit %>% left_join(fips,by="location")
   df_to_submit$location <- df_to_submit$fips
   df_to_submit <- df_to_submit %>% dplyr::select(target,location,forecast_date,target_end_date,quantile,value,type)
-  write.csv(file = paste0(sub_dir,"/",last_date,"-",model_name,".csv"),x=df_to_submit)
+  write.csv(file = paste0("../",sub_dir,"/",last_date,"-",model_name,".csv"),x=df_to_submit)
 }
 

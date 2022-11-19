@@ -17,9 +17,9 @@ The main function exported is called `semimech:generate_samples()` which takes a
 Get the data!
 
 ```{r,message=FALSE,warning=FALSE}
-#hhs <- get_hhs()
-#write.csv(file = "hhs",x = hhs)
-hhs <- read.csv("hhs")
+
+hhs <- get_hhs()
+
 ```
 
 Define the forecast dates.

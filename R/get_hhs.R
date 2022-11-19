@@ -15,8 +15,8 @@ get_hhs <- function() {
                       app_token = token)
 
   ## Read in data for states
-  load("data/fips.rda")
-  load("data/uspop.rda")
+  load("../data/fips.rda")
+  load("../data/uspop.rda")
 
   colnames(fips) <- c("fips", "state_full", "state", "alphacount")
   colnames(uspop) <- c("state_full", "pop")

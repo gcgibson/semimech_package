@@ -1,1 +1,0 @@
-# semimech_package
