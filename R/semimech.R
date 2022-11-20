@@ -92,7 +92,12 @@ generate_samples <- function(start,dates,region,inc_dat){
       fit_spline <- gam(covid ~ s(t,df=6,spar = .5)  ,data=data.frame(covid=inc_dat_sub_sub_tmp_train,
                                                             t= 1:length(inc_dat_sub_sub_tmp_train),
                                                             wave_mat=wave_mat_train))
-      #basis <- bs(1:80,df=5)
+
+
+
+
+
+
       #fit <- solve(t(basis)%*%basis)%*%t(basis)%*%inc_dat_sub_sub_tmp_train
       blorp <- data.frame(t=1:(length(inc_dat_sub_sub_tmp_train) +30),
                           wave_mat = wave_mat_test)#,
@@ -135,7 +140,6 @@ generate_samples <- function(start,dates,region,inc_dat){
         })
 
         wave_mat_sds[h] <- sd(wave_mat_diffs*local_pop/1e5,na.rm = T)
-        over_dispersion[h] <- mean()
       }
 
       preds_mat <- matrix(nrow=1000,ncol=30)
