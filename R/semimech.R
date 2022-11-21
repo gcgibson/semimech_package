@@ -44,7 +44,7 @@ generate_samples <- function(start,dates,region,inc_dat){
 
     ## hardcoded manipulation for now
     inc_dat_sub <- inc_dat %>%
-      dplyr::select(state, date, fips:previous_day_admission_adult_covid_confirmed)
+      dplyr::select(state, date, previous_day_admission_adult_covid_confirmed)
     inc_dat_sub <- inc_dat_sub %>% dplyr::select(state,date,previous_day_admission_adult_covid_confirmed)
     inc_dat_sub$covid <- inc_dat_sub$previous_day_admission_adult_covid_confirmed
     inc_dat_sub <- inc_dat_sub %>% dplyr::select(state,date,covid)
