@@ -7,17 +7,25 @@ extract_waves <- function(hhs,last_date){
   wave_mat_idx <- 1
   for (state in unique(hhs$state)){
     tmp <- hhs[hhs$state == state,]$covid_per_cap
-    tmp_lowess_diff <- diff(lowess(tmp,f=.1)$y)
-    wave_starts <- c(0)
+    inc_dat_sub_sub_tmp_dens <- sample(1:length(tmp),prob=tmp/sum(tmp),size=100000,replace = T)
+    bw_d <- density(inc_dat_sub_sub_tmp_dens,from = 1, to=length(tmp),n = length(tmp))
+
+
+    tmp_lowess_diff <- diff(bw_d$y)
+    wave_starts <- c()
     for (t in 2:length(tmp_lowess_diff)){
       if(tmp_lowess_diff[t-1] < 0 & tmp_lowess_diff[t] >0){
-        tmptmp <- tmp[tail(wave_starts,1):t]
-        wave_mat[wave_mat_idx,1:length(tmptmp)] <-tmptmp
-        wave_mat_idx <- wave_mat_idx +1
         wave_starts <- c(wave_starts,t)
-
       }
     }
+    if (length(wave_starts) > 2){
+      for (wave_start_idx in 2:length(wave_starts)){
+          tmptmp <- tmp[wave_starts[wave_start_idx-1]:wave_starts[wave_start_idx]]
+          wave_mat[wave_mat_idx,1:length(tmptmp)] <- tmptmp
+          wave_mat_idx <- wave_mat_idx +1
+      }
+    }
+
   }
   first_non_na <-which(is.na(wave_mat[,1]))[1]
 
@@ -60,24 +68,25 @@ generate_samples <- function(start,dates,region,inc_dat){
       local_pop <-uspop[uspop$location== state.name[which(state.abb == state )],]$Pop_Est_2019
       inc_dat_sub_sub <- inc_dat_sub[inc_dat_sub$state == state,]
 
-      inc_dat_sub_sub_tmp <- inc_dat_sub$covid
 
       ### wave mat stuff
       wave_starts <- c(0)
       inc_dat_sub_sub_tmp <- inc_dat_sub_sub$covid
-      inc_dat_sub_sub_tmp_diff_lowess <- diff(lowess(inc_dat_sub_sub_tmp,f=.1)$y)
-      for (t in 2:length(inc_dat_sub_sub_tmp_diff_lowess)){
-        if (inc_dat_sub_sub_tmp_diff_lowess[t-1] <0 & inc_dat_sub_sub_tmp_diff_lowess[t]>0){
+      inc_dat_sub_sub_tmp_dens <- sample(1:length(inc_dat_sub_sub_tmp),prob=inc_dat_sub_sub_tmp/sum(inc_dat_sub_sub_tmp),size=100000,replace = T)
+      bw_d <- density(inc_dat_sub_sub_tmp_dens,from = 1, to=length(inc_dat_sub_sub_tmp),n = length(inc_dat_sub_sub_tmp))
+
+      tmp_lowess_diff <- diff(bw_d$y)
+      wave_starts <- c()
+      for (t in 2:length(tmp_lowess_diff)){
+        if(tmp_lowess_diff[t-1] < 0 & tmp_lowess_diff[t] >0){
           wave_starts <- c(wave_starts,t)
         }
       }
-      diff_l <- length(inc_dat_sub_sub_tmp) - tail(wave_starts,1)
-      if (diff_l > 30){
-        inc_dat_sub_sub_tmp_train <- inc_dat_sub_sub_tmp[tail(wave_starts,1):length(inc_dat_sub_sub_tmp)]
 
-      } else{
-        inc_dat_sub_sub_tmp_train <- inc_dat_sub_sub_tmp[(length(inc_dat_sub_sub_tmp)-30):length(inc_dat_sub_sub_tmp)]
-      }
+      inc_dat_sub_sub_tmp_train <- inc_dat_sub_sub_tmp[tail(wave_starts,1):length(inc_dat_sub_sub_tmp)]
+
+
+
 
       wave_mat_test <- wave_mat[,1:(length(inc_dat_sub_sub_tmp_train)+30)]
       wave_mat_test <-wave_mat_test[complete.cases(wave_mat_test),]
@@ -89,7 +98,7 @@ generate_samples <- function(start,dates,region,inc_dat){
 
 
       ###GAM stuff
-      fit_spline <- gam(covid ~ s(t,df=6,spar = .5)  ,data=data.frame(covid=inc_dat_sub_sub_tmp_train,
+      fit_spline <- gam(covid ~ s(t,df=6)  ,data=data.frame(covid=inc_dat_sub_sub_tmp_train,
                                                             t= 1:length(inc_dat_sub_sub_tmp_train),
                                                             wave_mat=wave_mat_train))
 
@@ -107,12 +116,12 @@ generate_samples <- function(start,dates,region,inc_dat){
 
       if (!is.null(dim(wave_mat_train))){
         if (dim(wave_mat_train)[2] > 3){
-          fit_historical <- glmnet::cv.glmnet(y = inc_dat_sub_sub_tmp_train,x=wave_mat_train)
-          mse_historical <- sum((inc_dat_sub_sub_tmp_train-predict(fit_historical,newx=wave_mat_train))**2)
+          fit_historical <- SuperLearner(Y = inc_dat_sub_sub_tmp_train,X=data.frame(wave_mat_train),SL.library = c("SL.earth","SL.glmnet"))
+          mse_historical <- sum(abs(inc_dat_sub_sub_tmp_train-predict(fit_historical,data.frame(wave_mat_train))$pred))
 
-          preds_historical <- predict(fit_historical,newx = wave_mat_test)
+          preds_historical <- predict(fit_historical,newdata = data.frame(wave_mat_test))$pred
           preds_historical<- preds_historical[(length(preds_historical)-29):length(preds_historical)]
-          weights <- c(1/sum(fit_spline$residuals**2),1/mse_historical)
+          weights <- c(1/sum(abs(fit_spline$residuals)),1/mse_historical)
           weights  <- weights/sum(weights)
         } else{
           weights <- c(1,1e-10)
@@ -122,7 +131,7 @@ generate_samples <- function(start,dates,region,inc_dat){
         weights <- c(1,1e-10)
         preds_historical <- rep(0,30)
       }
-
+      print (weights)
       weights_mat[weights_mat_idx,] <- weights
       weights_mat_idx <- weights_mat_idx + 1
       ###combine
@@ -141,11 +150,12 @@ generate_samples <- function(start,dates,region,inc_dat){
 
         wave_mat_sds[h] <- sd(wave_mat_diffs*local_pop/1e5,na.rm = T)
       }
-
+      mean_done <- weights[1]*preds_spline + weights[2]*preds_historical
+      plot(inc_dat_sub_sub_tmp_train,type='l',xlim=c(1,length(inc_dat_sub_sub_tmp_train)+30),ylim=c(0,max(mean_done,inc_dat_sub_sub_tmp_train)))
+      lines(seq(length(inc_dat_sub_sub_tmp_train)+1,length(inc_dat_sub_sub_tmp_train)+30),preds_historical)
       preds_mat <- matrix(nrow=1000,ncol=30)
       for (row_idx in 1:1000){
 
-        mean_done <- weights[1]*preds_spline + weights[2]*preds_historical
         if (all(!is.na(mean_done))){
           preds_mat[row_idx,] <- rpois(length(mean_done),pmax(mean_done,1e-10)) + rnorm(length(mean_done),0,sd=diff_by_horzizon)
         }
