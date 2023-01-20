@@ -1,12 +1,13 @@
-extract_waves <- function(hhs,last_date){
+extract_waves <- function(hhs,last_date,start_date="2021-02-01"){
 
-  hhs <- hhs[hhs$date > "2021-02-01",]
+  hhs <- hhs[hhs$date >start_date,]
   hhs <- hhs[hhs$date <= last_date,]
   wave_mat <- matrix(NA,nrow=10000,ncol=1000)
 
   wave_mat_idx <- 1
   for (state in unique(hhs$state)){
     tmp <- hhs[hhs$state == state,]$covid_per_cap
+    tmp <- tmp[!is.na(tmp)]
     inc_dat_sub_sub_tmp_dens <- sample(1:length(tmp),prob=tmp/sum(tmp),size=100000,replace = T)
     bw_d <- density(inc_dat_sub_sub_tmp_dens,from = 1, to=length(tmp),n = length(tmp))
 
@@ -98,7 +99,7 @@ generate_samples <- function(start,dates,region,inc_dat){
 
 
       ###GAM stuff
-      fit_spline <- gam(covid ~ s(t,df=6)  ,data=data.frame(covid=inc_dat_sub_sub_tmp_train,
+      fit_spline <- mgcv::gam(covid ~ s(t)  ,data=data.frame(covid=inc_dat_sub_sub_tmp_train,
                                                             t= 1:length(inc_dat_sub_sub_tmp_train),
                                                             wave_mat=wave_mat_train))
 
@@ -151,8 +152,10 @@ generate_samples <- function(start,dates,region,inc_dat){
         wave_mat_sds[h] <- sd(wave_mat_diffs*local_pop/1e5,na.rm = T)
       }
       mean_done <- weights[1]*preds_spline + weights[2]*preds_historical
-      plot(inc_dat_sub_sub_tmp_train,type='l',xlim=c(1,length(inc_dat_sub_sub_tmp_train)+30),ylim=c(0,max(mean_done,inc_dat_sub_sub_tmp_train)))
-      lines(seq(length(inc_dat_sub_sub_tmp_train)+1,length(inc_dat_sub_sub_tmp_train)+30),preds_historical)
+
+
+      #plot(inc_dat_sub_sub_tmp_train,type='l',xlim=c(1,length(inc_dat_sub_sub_tmp_train)+30),ylim=c(0,max(mean_done,inc_dat_sub_sub_tmp_train)))
+      #lines(seq(length(inc_dat_sub_sub_tmp_train)+1,length(inc_dat_sub_sub_tmp_train)+30),preds_historical)
       preds_mat <- matrix(nrow=1000,ncol=30)
       for (row_idx in 1:1000){
 

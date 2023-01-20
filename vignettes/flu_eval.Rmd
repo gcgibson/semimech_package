@@ -1,0 +1,121 @@
+---
+title: "Flu"
+output: html_document
+---
+First we load the library.
+
+```{r setup, include=FALSE}
+library(semimech)
+```
+
+
+```{r,message=FALSE,warning=FALSE}
+library(stringr)
+library(ggplot2)
+hhs <- get_hhs()
+
+### compute US
+
+hhs_us <- hhs %>% dplyr::group_by(date) %>% dplyr::summarize(state="US",previous_day_admission_influenza_confirmed = sum(previous_day_admission_influenza_confirmed,na.rm=T)) 
+hhs_us$flu_per_cap <- hhs_us$previous_day_admission_influenza_confirmed/300000000
+
+hhs <- rbind(hhs_us,hhs %>% select(state,date,previous_day_admission_influenza_confirmed,flu_per_cap))
+ggplot(hhs[hhs$state == "TX",],aes(x=date,y=previous_day_admission_influenza_confirmed)) + geom_line()
+```
+
+
+```{r}
+library(dplyr)
+library(MMWRweek)
+library(ggplot2)
+#install.packages("cdcfluview")
+
+ili <-cdcfluview::ilinet(region = "state",years = c("2016","2017","2018","2019","2020","2021","2022"))
+
+
+date_ <- list()
+for ( i in 1:nrow(ili)){
+  date_[[i]] <- MMWRweek2Date(MMWRyear = ili$year[i],MMWRweek =  ili$week[i])
+}
+ili$date <-do.call("c", date_)
+
+ili_for_plot <- ili %>% filter(region == "Massachusetts")  %>% group_by(year)
+ggplot(ili_for_plot,aes(x=date,y=unweighted_ili)) +geom_line()
+
+```
+
+
+
+```{r}
+wave_mat <- semimech::extract_waves_flu(ili,"2021-07-12")
+
+date_rng <- seq(as.Date("2022-02-02"),as.Date("2022-05-01"),by="day")
+
+plot(wave_mat[10,10:100],type='l')
+
+lines(hhs[hhs$state == "CA" & hhs$date %in% date_for_plot,]$previous_day_admission_influenza_confirmed/120,type='l',col='red')
+
+```
+
+
+
+```{r,message=FALSE,warning=FALSE,eval=FALSE}
+
+samples <- semimech::generate_samples_flu("2020-08-01",c("2022-11-07"),"states",hhs,ili)
+
+date_for_plot <- seq(as.Date("2022-11-07"),as.Date("2022-11-07")+30,by="day")
+plot(colMeans(samples$CA),type='l')
+
+```
+
+
+```{r,message=FALSE,warning=FALSE,eval=FALSE}
+date_seq <- seq(as.Date("2022-01-10"),as.Date("2023-01-21"),by="week")
+for (date_idx in 1:length(date_seq)){
+  samples <- semimech::generate_samples_flu("2020-08-01",date_seq[date_idx],"states",hhs,ili)
+  semimech::generate_submission_file(date_seq[date_idx],samples,"UT-test","sub_files_flu")
+}
+
+
+```
+
+
+```{r,message=FALSE,warning=FALSE}
+library(covidHubUtils)
+fcasts <- load_forecasts(
+  source = "local_hub_repo",
+  models =c("UT-test"),
+  targets = c(paste0(rep(1:4), " wk ahead inc flu hosp")),
+  data_processed_subpath = "data-forecasts/",date_window_size = 3,
+  hub_repo_path = "/Users/gcg799/Desktop/Flusight-forecast-data",
+  hub = "FluSight")
+
+fcasts_baseline <- load_forecasts(
+  source = "local_hub_repo",
+  models =c("Flusight-baseline","Flusight-ensemble"),date_window_size = 3,
+  dates = unique(fcasts$forecast_date),locations = unique(fcasts$location),
+  targets = c(paste0(rep(1:4), " wk ahead inc flu hosp")),
+  data_processed_subpath = "data-forecasts/",
+  hub_repo_path = "/Users/gcg799/Desktop/Flusight-forecast-data",
+  hub = "FluSight")
+
+
+truth <- load_truth(hub = "FluSight")
+truth <- truth[truth$target_variable == "inc flu hosp",]
+
+scores <- score_forecasts(rbind(fcasts,fcasts_baseline),truth = truth,metrics = c("abs_error","wis","interval_coverage"),use_median_as_point=TRUE)
+scores_common_location <- unique(scores[scores$model == "UT-test",]$location)
+scores_common_forecast_date <- unique(scores[scores$model == "UT-test",]$forecast_date)
+
+scores <- scores[scores$location %in% scores_common_location,]
+scores <- scores[scores$forecast_date %in% scores_common_forecast_date,]
+
+summ_scores <- scores[scores$location %in%scores_common_location &
+              scores$forecast_date %in% scores_common_forecast_date,] %>% group_by(model) %>% summarize(coverage_90=mean(coverage_90),wis=mean(wis),abs_error=mean(abs_error))
+
+
+print (summ_scores)
+
+View(scores %>% select(model,forecast_date,location,abs_error))
+
+```
